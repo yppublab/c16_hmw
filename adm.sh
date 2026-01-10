@@ -24,7 +24,11 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 EOF
 fi
 sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config || true
-sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config || true
+if [[ "$(hostname)" == "ivanov-linux-003" ]]; then
+    sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config || true
+else
+    sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config || true
+fi
 ssh-keygen -A >/dev/null 2>&1 || true
 
 echo 'adding adm user'
@@ -36,8 +40,8 @@ if ! id -u adm_ivanov>/dev/null 2>&1; then
 fi
 #echo "${ADM_HASH}"
 
-echo 'student ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/91-adm_ivanov
-chmod 0440 /etc/sudoers.d/91-adm_ivanov
+echo '%admins ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/91-admins
+chmod 0440 /etc/sudoers.d/91-admins
 
 mkdir -p /run/sshd
 chmod 755 /run/sshd
