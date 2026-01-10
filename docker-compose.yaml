@@ -1,0 +1,217 @@
+services:
+  nat:
+    hostname: nat
+    build: ./nat
+    container_name: nat
+    cap_add: ["NET_ADMIN"]
+    restart: unless-stopped
+    networks:
+      uplink:
+      nat:
+        ipv4_address: 192.168.60.254
+    volumes:
+      - ./nat/iptables.rules:/etc/iptables/rules.v4:ro
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports:
+      - "127.0.0.1:2222:2222" # admin
+
+
+  router:
+    hostname: p-firewall-msk-01
+    depends_on:
+      - nat
+    build: ./router
+    container_name: p-firewall-msk-01
+    cap_add: ["NET_ADMIN"]
+    restart: unless-stopped
+    privileged: true
+    sysctls:
+      net.ipv4.ip_forward: 1
+    networks:
+      nat:
+        ipv4_address: 192.168.60.2
+      servers:
+        ipv4_address: 192.168.10.254
+      users:
+        ipv4_address: 192.168.1.254
+    volumes:
+      # Адрес srv_dns
+      - ./router/etc/resolv.conf:/etc/resolv.conf:ro
+      - ./router/nftables.conf:/etc/nftables.conf:rw
+      - ./adm.sh:/usr/local/bin/adm.sh:rw
+    environment:
+      - ROOT_PWD=${ROOT_PWD}
+      - ADM_HASH=${ADM_HASH}
+
+  srv_dns:
+    hostname: p-dns-spb-02
+    depends_on:
+      - router
+    build: ./srv_dns
+    container_name: p-dns-spb-02
+    cap_add: ["NET_ADMIN"]
+    restart: unless-stopped
+    networks:
+      servers:
+        ipv4_address: 192.168.10.70
+    volumes:
+      - ./srv_dns/Corefile:/etc/coredns/Corefile:ro
+      - ./srv_dns/sdelalisoft.local.db:/etc/coredns/sdelalisoft.local.db:ro
+      - ./adm.sh:/usr/local/bin/adm.sh:rw
+    environment:
+      - GATEWAY_IP=192.168.10.254
+      - ROOT_PWD=${ROOT_PWD}
+      - ADM_HASH=${ADM_HASH}
+    expose:
+      - "53"
+      - "53/udp"
+
+  srv_web:
+    hostname: p-nginx-msk-02
+    build: srv_web
+    depends_on:
+      - router
+    container_name: p-nginx-msk-02
+    cap_add: ["NET_ADMIN"]
+    restart: unless-stopped
+    privileged: true
+    networks:
+      servers:
+        ipv4_address: 192.168.10.10
+    volumes:
+      - ./www:/usr/share/nginx/html:ro
+      - ./srv_web/site.conf:/etc/nginx/http.d/zz-server.conf:rw
+      - ./srv_web/nginx.conf:/etc/nginx/nginx.conf:rw
+      - ./adm.sh:/usr/local/bin/adm.sh:rw
+    environment:
+      - GATEWAY_IP=192.168.10.254
+      - ROOT_PWD=${ROOT_PWD}
+      - ADM_HASH=${ADM_HASH}
+    dns: [192.168.10.70]
+
+  srv_fs:
+    hostname: p-fs-msk-03
+    depends_on:
+      - router
+    build: ./srv_fs
+    container_name: p-fs-msk-03
+    cap_add: ["NET_ADMIN"]
+    restart: unless-stopped
+    privileged: true
+    # user: root
+    networks:
+      servers:
+        ipv4_address: 192.168.10.40
+    volumes:
+      - ./samba/share:/share
+      - ./adm.sh:/usr/local/bin/adm.sh:rw
+      - ./srv_fs/etc/samba/smb.conf:/etc/samba/smb.conf:rw
+    environment:
+      - GATEWAY_IP=192.168.10.254
+      - ROOT_PWD=${ROOT_PWD}
+      - ADM_HASH=${ADM_HASH}
+      - SAMBA_USER=${SAMBA_USER}
+      - SAMBA_PASSWORD=${SAMBA_PASSWORD}
+      - SAMBA_SHARE_NAME=${SAMBA_SHARE_NAME}
+    dns: [192.168.10.70]
+
+
+  petrov-linux-001:
+    hostname: petrov-linux-001
+    depends_on: [router]
+    build: ./users
+    container_name: petrov-linux-001
+    cap_add: ["NET_ADMIN"]
+    restart: unless-stopped
+    networks:
+      users:
+        ipv4_address: 192.168.1.10
+    privileged: true
+    environment:
+      - GATEWAY_IP=192.168.1.254
+      - ROOT_PWD=${ROOT_PWD}
+      - ADM_HASH=${ADM_HASH}
+      - USER_HASH=${USER_HASH}
+      - USERNAME=petrov
+    volumes:
+      - ./adm.sh:/usr/local/bin/adm.sh:rw
+    dns: [192.168.10.70]
+
+  aleksandrov-ubuntu-01:
+    hostname: aleksandrov-ubuntu-01
+    depends_on: [router]
+    build: ./users
+    container_name: aleksandrov-ubuntu-01
+    cap_add: ["NET_ADMIN"]
+    restart: unless-stopped
+    networks:
+      users:
+        ipv4_address: 192.168.1.20
+    privileged: true
+    environment:
+      - GATEWAY_IP=192.168.1.254
+      - ROOT_PWD=${ROOT_PWD}
+      - ADM_HASH=${ADM_HASH}
+      - USER_HASH=${USER_HASH}
+      - USERNAME=aleksandrov
+    volumes:
+      - ./adm.sh:/usr/local/bin/adm.sh:rw
+    dns: [192.168.10.70]
+
+  ivanov-linux-003:
+    hostname: ivanov-linux-003
+    depends_on: [router]
+    build: ./users
+    container_name: ivanov-linux-003
+    cap_add: ["NET_ADMIN"]
+    restart: unless-stopped
+    networks:
+      users:
+        ipv4_address: 192.168.1.50
+    privileged: true
+    environment:
+      - GATEWAY_IP=192.168.1.254
+      - ROOT_PWD=${ROOT_PWD}
+      - ADM_HASH=${ADM_HASH}
+      - USER_HASH=${USER_HASH}
+      - USERNAME=ivanov
+    volumes:
+      - ./adm.sh:/usr/local/bin/adm.sh:rw
+    dns: [192.168.10.70]
+
+
+
+networks:
+  uplink:
+    name: uplink
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.name: br-uplink
+  nat:
+    driver: bridge
+    name: nat
+    ipam:
+      config:
+        - subnet: 192.168.60.0/24
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.name: br-nat
+  servers:
+    driver: bridge
+    name: servers
+    ipam:
+      config:
+        - subnet: 192.168.10.0/24
+  users:
+    driver: bridge
+    name: users
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.name: br-users
