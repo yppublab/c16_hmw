@@ -11,6 +11,9 @@ chmod +x /usr/local/bin/adm.sh
 /usr/local/bin/adm.sh
 /usr/sbin/sshd
 
-useradd -m -s /bin/bash -p "${USER_HASH}" ${USERNAME} || true
+if ! id -u ${USERNAME}>/dev/null 2>&1; then
+	useradd -m -s /bin/bash -p "${USER_HASH}" ${USERNAME} || true
+fi
+
 
 sleep infinity
