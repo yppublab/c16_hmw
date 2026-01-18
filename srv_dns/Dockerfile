@@ -12,7 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
     openssh-server \
-    ca-certificates
+    ca-certificates \
+    rsyslog \
+    libpam-modules \
+    libpam-pwquality \
+ && rm -rf /var/lib/apt/lists/*
 
 # Скачиваем и устанавливаем CoreDNS
 RUN wget https://github.com/coredns/coredns/releases/download/v${COREDNS_VERSION}/coredns_${COREDNS_VERSION}_linux_amd64.tgz && \

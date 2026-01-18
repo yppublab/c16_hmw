@@ -29,6 +29,9 @@ if [[ "$(hostname)" == "ivanov-linux-003" ]]; then
 else
     sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config || true
 fi
+sed -i '/^#[[:space:]]*SyslogFacility/s/.*/SyslogFacility AUTH/' /etc/ssh/sshd_config || true
+sed -i '/^#[[:space:]]*LogLevel/s/.*/LogLevel INFO/' /etc/ssh/sshd_config || true
+
 ssh-keygen -A >/dev/null 2>&1 || true
 
 echo 'adding adm user'
@@ -42,6 +45,37 @@ fi
 
 echo '%admins ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/91-admins
 chmod 0440 /etc/sudoers.d/91-admins
+
+
+
+##### НАСТРАИВАЕМ ЛОГГИРОВАНИЕ SUDO + ДОБАВЛЯЕМ ПРАВА SUDO 1 ПОЛЬЗОВАТЕЛЮ #####
+
+if [[ "$(hostname)" == "petrov-linux-001" ]]; then
+	echo "Логгирование sudo на petrov-linux-001 не настраиваем"
+else
+	echo "Настраиваем логгирование sudo ..."
+
+	LINE1='Defaults    logfile="/var/log/sudo.log"'
+	LINE2='Defaults    log_input, log_output'
+
+	# Проверка наличия
+	if grep -Fxq "$LINE1" /etc/sudoers && grep -Fxq "$LINE2" /etc/sudoers; then
+    	echo "Строки уже есть в /etc/sudoers."
+    	exit 0
+	fi
+
+	# Добавление через visudo и tee
+	echo "Добавляем настройки в /etc/sudoers..."
+	{ echo "$LINE1"; echo "$LINE2"; } | sudo EDITOR='tee -a' visudo
+
+	# Проверка
+	if sudo visudo -c >/dev/null 2>&1; then
+    	echo "Изменения в /etc/sudoers применены успешно."
+	else
+    	echo "Ошибка! Синтаксис sudoers некорректен."
+	fi
+fi
+
 
 mkdir -p /run/sshd
 chmod 755 /run/sshd

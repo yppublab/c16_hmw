@@ -46,5 +46,12 @@ nft -f /etc/nftables.conf
 chmod +x /usr/local/bin/adm.sh
 /usr/local/bin/adm.sh
 
+# Создаём файлы логов, даем права и запускаем rsyslogd
+touch /var/log/auth.log /var/log/syslog
+chown syslog:adm /var/log/auth.log /var/log/syslog 2>/dev/null || true
+chmod 644 /var/log/auth.log /var/log/syslog
+echo "Запускаем rsyslogd"
+rsyslogd -n -f /etc/rsyslog.conf &
+
 # Keep running
 exec /usr/sbin/sshd -D
